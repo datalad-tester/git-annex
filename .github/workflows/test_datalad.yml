@@ -1,15 +1,10 @@
 name: DataLad tests
-
 on: [push, pull_request]
-
 jobs:
   test:
-
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
-
   steps:
   - name: Setup environment for testing
     run: |
