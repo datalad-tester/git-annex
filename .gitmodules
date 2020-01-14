@@ -1,0 +1,3 @@
+[submodule "git-annex"]
+	path = git-annex
+	url = git://git.kitenet.net/git-annex
