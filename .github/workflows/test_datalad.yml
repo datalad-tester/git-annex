@@ -1,0 +1,72 @@
+name: Extensions
+
+on: [push, pull_request]
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+
+  steps:
+    - name: Setup environment for testing
+      run: |
+        git config --global user.email "test@github.land"
+        git config --global user.name "GitHub Almighty"
+
+    - name: Setup NeuroDebian and install needed tools
+      shell: bash
+      run: |
+        bash <(wget -q -O- http://neuro.debian.net/_files/neurodebian-travis.sh)
+        sudo apt-get update -qq
+        sudo apt-get install eatmydata
+        sudo eatmydata apt-get install git make quilt devscripts debhelper
+
+    - name: Install Singularity
+      run: sudo eatmydata apt-get install singularity-container
+
+    - name: Setup git-annex sources
+      run: |
+        git submodule update --init
+        git -C git-annex pull --ff-only
+
+    - name: Produce Debian source package
+      run: |
+        cd git-annex
+        # make debianstandalone-dsc;  # cannot do since would need build-depends ATM
+        make prep-standalone
+        dpkg-buildpackage -S -d
+
+    - name: Recreate cow/pbuilder environment TODO avoid redoing...
+      run: |
+        sudo eatmydata apt-get install neurodebian-dev
+        sed -i -e 's,i386 ,,g' /usr/bin/nd_adddist    # ATM no way to make it only amd64
+        sudo nd_adddist nd+debian buster  # under /home/neurodebian/cow/... ATM
+
+    - name: Build git-annex within NeuroDebian buster environment (as we do)
+      run: sudo nd_build nd+debian buster amd64 *dsc
+
+    - name: Install produced git-annex package
+      run: sudo dpkg -i *deb
+
+    - name: Setup Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+
+    - name: Install DataLad
+      run: |
+        python -m pip install --upgrade pip
+        pip install git+https://github.com/datalad/datalad@master
+
+    - name: WTF!?
+      run: |
+        datalad wtf
+
+    - name: DataLad tests
+      run: |
+        mkdir -p __testhome__
+        cd __testhome__
+        python -m nose -s -v datalad
